@@ -2,7 +2,7 @@
    アプリの画面（シェル）をキャッシュして、オフラインでも開けるようにする。
    API通信（TMDB / Gemini / Notion中継）はキャッシュしない。
    ※ 下書きは localStorage に保存されるため、このキャッシュの版数とは無関係に保持される。 */
-const CACHE_NAME = "movie-pwa-shell-v1";
+const CACHE_NAME = "movie-pwa-shell-v2";
 const SHELL_FILES = [
   "./",
   "./index.html",

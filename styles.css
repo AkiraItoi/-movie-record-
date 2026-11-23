@@ -181,3 +181,45 @@ body {
   .confirm-body dl, .detail-body dl { grid-template-columns: 1fr; }
   .confirm-body dt, .detail-body dt { margin-top: 8px; }
 }
+
+/* ===== レスポンシブ：タブレット（768px以上） ===== */
+@media (min-width: 768px) {
+  .app-header-inner, .app-main { max-width: 960px; }
+  .app-main { padding: 24px 20px 48px; }
+  .record-list { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+}
+
+/* ===== レスポンシブ：PC（1024px以上） ===== */
+@media (min-width: 1024px) {
+  html { font-size: 17.5px; }
+  .app-header-inner, .app-main { max-width: 1160px; }
+  .app-header-inner { padding: 14px 24px; }
+  .app-title { font-size: 1.35rem; }
+  .app-main { padding: 28px 24px 56px; }
+  .view-title { font-size: 1.5rem; margin-bottom: 16px; }
+
+  /* 一覧・候補は横に並べる */
+  .record-list { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .candidate-list { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .record-card { padding: 14px; }
+  .record-card img { width: 66px; height: 99px; }
+  .poster-img { width: 110px; }
+
+  /* 入力フォームは「作品情報」「感想」を左右2段に */
+  #view-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; align-items: start; }
+  #view-form > .view-title, #view-form > .draft-banner,
+  #view-form > .status-line, #view-form > .actions { grid-column: 1 / -1; }
+  #view-form > .form-block { margin: 8px 0 16px; }
+  .form-block { padding: 20px; }
+
+  /* 検索欄・設定は広げすぎない */
+  .search-form { max-width: 720px; }
+  #view-settings { max-width: 860px; }
+  #view-post { max-width: 860px; }
+}
+
+/* ===== レスポンシブ：大きなPC画面（1440px以上） ===== */
+@media (min-width: 1440px) {
+  .app-header-inner, .app-main { max-width: 1280px; }
+  .record-list { grid-template-columns: repeat(3, 1fr); }
+}
