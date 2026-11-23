@@ -7,7 +7,7 @@
 const SETTINGS_KEY = "movieRecord.settings";
 const DRAFT_KEY = "movieRecord.draft";
 const RECORDS_KEY = "movieRecord.records";
-const DEFAULT_NOTION_DB_ID = "421900d8-e82c-8145-a27be9be1ee60b32";
+const DEFAULT_NOTION_DB_ID = "421900d8-e82c-8145-a27b-e9be1ee60b32";
 const GEMINI_MODEL = "gemini-2.0-flash";
 
 const ALL_GENRES = ["アクション","アドベンチャー","アニメーション","コメディ","犯罪","ドキュメンタリー","ドラマ","ファミリー","ファンタジー","歴史","ホラー","音楽","ミステリー","ロマンス","SF","スリラー","戦争","西部劇"];
