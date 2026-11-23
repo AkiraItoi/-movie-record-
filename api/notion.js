@@ -15,7 +15,7 @@
  * - 保存する秘密情報はゼロ。環境変数・DB・ストレージは使わない。
  */
 
-const NOTION_VERSION = "2022-06-28";
+const NOTION_VERSION = "2025-09-03";
 const NOTION_API_BASE = "https://api.notion.com/v1";
 
 function setCors(res) {
@@ -88,6 +88,19 @@ module.exports = async function handler(req, res) {
   const token = body.token;
   const payload = body.payload || {};
 
+  /* 新方式のデータベースは「データソース」を持つため、ページ作成時は
+     database_id からデータソースIDを解決して parent に使う。
+     （database_id を直接 parent にすると validation error になる） */
+  async function resolveDataSourceId(databaseId) {
+    const db = await notionRequest(token, "GET", "/databases/" + databaseId, null);
+    if (db.status !== 200) return { error: db };
+    const sources = (db.data && db.data.data_sources) || [];
+    if (!sources.length || !sources[0].id) {
+      return { error: { status: 502, data: { message: "データベースからデータソースを取得できませんでした" } } };
+    }
+    return { dataSourceId: sources[0].id };
+  }
+
   if (!token) {
     sendJson(res, 401, { message: "Notion連携トークンが送られていません（PWAの設定を確認してください）" });
     return;
@@ -100,8 +113,13 @@ module.exports = async function handler(req, res) {
         sendJson(res, 400, { message: "database_id がありません" });
         return;
       }
+      const resolved = await resolveDataSourceId(payload.database_id);
+      if (resolved.error) {
+        sendJson(res, resolved.error.status, resolved.error.data);
+        return;
+      }
       const result = await notionRequest(token, "POST", "/pages", {
-        parent: { database_id: payload.database_id },
+        parent: { data_source_id: resolved.dataSourceId },
         properties: payload.properties || {}
       });
       sendJson(res, result.status, result.data);
