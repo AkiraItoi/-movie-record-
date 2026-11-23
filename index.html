@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>映画鑑賞記録</title>
+<meta name="description" content="個人用の映画鑑賞記録。作品情報は自動取得し、感想だけを手入力する非公開の記録アプリ。">
+<meta name="theme-color" content="#3a2c1e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="映画記録">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="app-header">
+  <div class="app-header-inner">
+    <div class="app-title">🎬 映画鑑賞記録</div>
+    <nav class="app-nav">
+      <button type="button" class="nav-btn" data-nav="list">一覧</button>
+      <button type="button" class="nav-btn nav-btn-primary" data-nav="search">＋ 映画を記録する</button>
+      <button type="button" class="nav-btn" data-nav="settings">設定</button>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <!-- ===== 一覧 ===== -->
+  <section id="view-list" class="view">
+    <h2 class="view-title">登録済みの映画</h2>
+    <p id="list-empty" class="muted">まだ記録がありません。「＋ 映画を記録する」から最初の1本を記録してください。<br>（記録の本体はNotionに保存されます。ここにはこの端末のキャッシュが表示されます）</p>
+    <div id="record-list" class="record-list"></div>
+  </section>
+
+  <!-- ===== 検索 ===== -->
+  <section id="view-search" class="view" hidden>
+    <h2 class="view-title">映画を検索</h2>
+    <p class="muted">邦題・原題・一部の入力でも検索できます。</p>
+    <form id="search-form" class="search-form">
+      <input type="search" id="search-input" placeholder="作品名を入力（例：ゴジラ-0.0）" autocomplete="off" enterkeyhint="search">
+      <button type="submit" class="btn btn-primary">検索</button>
+    </form>
+    <p id="search-status" class="status-line" role="status"></p>
+    <div id="candidate-list" class="candidate-list"></div>
+    <div id="search-actions" class="actions" hidden>
+      <button type="button" id="btn-use-selected" class="btn btn-primary" disabled>この作品で記録する</button>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-manual" class="btn btn-ghost">見つからない場合は手入力で記録する</button>
+    </div>
+  </section>
+
+  <!-- ===== 入力フォーム ===== -->
+  <section id="view-form" class="view" hidden>
+    <div id="draft-banner" class="draft-banner" hidden>
+      <span>入力途中の下書きを復元しました。</span>
+      <button type="button" id="btn-discard-draft" class="btn btn-small btn-ghost">下書きを破棄</button>
+    </div>
+    <h2 class="view-title">映画の記録</h2>
+
+    <div class="form-block">
+      <h3 class="block-title">作品情報（自動入力・編集可）</h3>
+      <div class="poster-row">
+        <img id="f-poster" class="poster-img" alt="ポスター" hidden>
+        <div class="poster-fields">
+          <label class="field"><span>作品名</span><input type="text" id="f-title"></label>
+          <label class="field"><span>原題</span><input type="text" id="f-original-title"></label>
+        </div>
+      </div>
+      <div class="field-grid">
+        <label class="field"><span>監督</span><input type="text" id="f-director"></label>
+        <label class="field"><span>公開年</span><input type="number" id="f-year" inputmode="numeric" min="1888" max="2100"></label>
+      </div>
+      <label class="field"><span>主な出演者（6名まで）</span>
+        <textarea id="f-cast" rows="6" placeholder="1行に1人、「氏名（役名）」の形で入力してください"></textarea>
+      </label>
+      <div class="field"><span>ジャンル</span>
+        <div id="f-genres" class="chip-wrap"></div>
+      </div>
+      <label class="field"><span>一般的なテーマ（AI生成・編集可）</span>
+        <textarea id="f-theme" rows="3"></textarea>
+      </label>
+      <div class="actions actions-left">
+        <button type="button" id="btn-regen-theme" class="btn btn-small">テーマをAIで作り直す</button>
+      </div>
+      <label class="field"><span>Letterboxd URL</span><input type="url" id="f-letterboxd" inputmode="url"></label>
+      <label class="field"><span>ポスター画像URL</span><input type="url" id="f-poster-url" inputmode="url"></label>
+    </div>
+
+    <div class="form-block">
+      <h3 class="block-title">あなたの感想</h3>
+      <div class="field-grid">
+        <label class="field"><span>鑑賞日</span><input type="date" id="f-watch-date"></label>
+        <label class="field"><span>評価</span>
+          <select id="f-rating">
+            <option value="">未入力</option>
+            <option value="5">★★★★★（5）</option>
+            <option value="4">★★★★（4）</option>
+            <option value="3">★★★（3）</option>
+            <option value="2">★★（2）</option>
+            <option value="1">★（1）</option>
+          </select>
+        </label>
+      </div>
+      <label class="field"><span>私が感じた一言テーマ</span><input type="text" id="f-my-theme"></label>
+      <label class="field"><span>印象に残った場面</span><textarea id="f-scene" rows="3"></textarea></label>
+      <label class="field"><span>深掘り用感想・キーワード</span>
+        <textarea id="f-deep" rows="6" placeholder="乱文・箇条書きでOKです。思いつくままに書いてください。"></textarea>
+        <small class="hint">思いのままに書いて大丈夫です。下の「短い感想」は、ここに書いた内容だけをもとにAIが要約します。</small>
+      </label>
+      <label class="field"><span>短い感想</span>
+        <textarea id="f-short" rows="3"></textarea>
+      </label>
+      <div class="actions actions-left">
+        <button type="button" id="btn-summarize" class="btn btn-small">AIで要約する</button>
+        <span id="summarize-status" class="hint"></span>
+      </div>
+      <label class="field"><span>仕事・人生との接点</span><textarea id="f-connection" rows="3"></textarea></label>
+      <div class="field"><span>再鑑賞したいか</span>
+        <div class="radio-row" id="f-rewatch">
+          <label><input type="radio" name="rewatch" value="ぜひ再鑑賞したい"> ぜひ再鑑賞したい</label>
+          <label><input type="radio" name="rewatch" value="機会があれば"> 機会があれば</label>
+          <label><input type="radio" name="rewatch" value="再鑑賞はしない"> 再鑑賞はしない</label>
+        </div>
+      </div>
+    </div>
+
+    <p id="form-status" class="status-line" role="status"></p>
+    <div class="actions">
+      <button type="button" id="btn-to-confirm" class="btn btn-primary">保存内容を確認する</button>
+      <button type="button" id="btn-form-back" class="btn btn-ghost">検索に戻る</button>
+    </div>
+  </section>
+
+  <!-- ===== 保存確認 ===== -->
+  <section id="view-confirm" class="view" hidden>
+    <h2 class="view-title">Notionへの保存確認</h2>
+    <div id="confirm-body" class="confirm-body"></div>
+    <p id="confirm-status" class="status-line" role="status"></p>
+    <div class="actions">
+      <button type="button" id="btn-save-notion" class="btn btn-primary">Notionに保存する</button>
+      <button type="button" id="btn-confirm-back" class="btn btn-ghost">入力に戻る</button>
+    </div>
+    <p class="muted">保存に失敗しても入力は下書きに残り、そのまま再送できます。</p>
+  </section>
+
+  <!-- ===== SNS投稿 ===== -->
+  <section id="view-post" class="view" hidden>
+    <h2 class="view-title">SNS投稿文の確認・承認</h2>
+    <p class="muted">あなたの書いた文章はそのまま使います（AIで改変しません）。投稿は承認後に、共有・X・コピーのいずれかで行ってください。</p>
+    <label class="field"><span>投稿文</span><textarea id="post-text" rows="10"></textarea></label>
+    <p class="hint">文字数（X換算）：<span id="post-count">0</span> / 280　<span id="post-warn" class="warn" hidden>※上限を超えています。自動では直しませんので、必要ならご自身で調整してください。</span></p>
+    <div class="actions">
+      <button type="button" id="btn-share" class="btn btn-primary">共有する（Instagram等）</button>
+      <button type="button" id="btn-post-x" class="btn">Xで投稿する</button>
+      <button type="button" id="btn-copy-post" class="btn">投稿文をコピー</button>
+    </div>
+    <p id="post-status" class="status-line" role="status"></p>
+    <div class="field"><span>投稿状態（投稿したら記録してください）</span>
+      <div class="actions actions-left">
+        <select id="post-state-select">
+          <option value="未承認">未承認</option>
+          <option value="投稿済み">投稿済み</option>
+          <option value="一部投稿済み">一部投稿済み</option>
+          <option value="投稿失敗">投稿失敗</option>
+        </select>
+        <button type="button" id="btn-save-post-state" class="btn btn-small">Notionに反映する</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-post-done" class="btn btn-ghost">一覧に戻る</button>
+    </div>
+  </section>
+
+  <!-- ===== 詳細 ===== -->
+  <section id="view-detail" class="view" hidden>
+    <h2 class="view-title">記録の詳細</h2>
+    <div id="detail-body" class="detail-body"></div>
+    <div class="actions">
+      <button type="button" id="btn-detail-post" class="btn btn-primary">SNS投稿画面へ</button>
+      <button type="button" id="btn-detail-back" class="btn btn-ghost">一覧に戻る</button>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-detail-delete" class="btn btn-danger-ghost">この端末の一覧から削除（Notionの記録は残ります）</button>
+    </div>
+  </section>
+
+  <!-- ===== 設定 ===== -->
+  <section id="view-settings" class="view" hidden>
+    <h2 class="view-title">設定</h2>
+    <p class="muted">キー類はこの端末の中（localStorage）にのみ保存され、画面に再表示されることはありません。入力した値は「保存済み」とだけ表示されます。</p>
+
+    <div class="form-block">
+      <h3 class="block-title">映画検索（TMDB）</h3>
+      <label class="field"><span>TMDB APIキー</span>
+        <input type="password" id="s-tmdb" autocomplete="off" placeholder="">
+        <small class="hint" id="s-tmdb-state"></small>
+      </label>
+      <div class="actions actions-left">
+        <button type="button" class="btn btn-small" data-delete-key="tmdbKey">TMDBキーを削除</button>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <h3 class="block-title">AI（Gemini）― テーマ生成・役名の日本語化・短い感想の要約</h3>
+      <label class="field"><span>Gemini APIキー</span>
+        <input type="password" id="s-gemini" autocomplete="off" placeholder="">
+        <small class="hint" id="s-gemini-state"></small>
+      </label>
+      <div class="actions actions-left">
+        <button type="button" class="btn btn-small" data-delete-key="geminiKey">Geminiキーを削除</button>
+      </div>
+      <p class="muted">キーが無い場合：テーマは空欄（手入力可）、役名はローマ字で出さず空欄にします。短い感想は手入力で使えます。</p>
+    </div>
+
+    <div class="form-block">
+      <h3 class="block-title">Notion保存（Vercel中継経由）</h3>
+      <label class="field"><span>中継URL（Vercel）</span>
+        <input type="url" id="s-relay" inputmode="url" placeholder="https://あなたのプロジェクト.vercel.app/api/notion">
+        <small class="hint" id="s-relay-state"></small>
+      </label>
+      <label class="field"><span>Notion連携トークン</span>
+        <input type="password" id="s-notion-token" autocomplete="off" placeholder="">
+        <small class="hint" id="s-notion-token-state"></small>
+      </label>
+      <label class="field"><span>NotionデータベースID</span>
+        <input type="text" id="s-notion-db" autocomplete="off">
+        <small class="hint" id="s-notion-db-state"></small>
+      </label>
+      <div class="actions actions-left">
+        <button type="button" class="btn btn-small" data-delete-key="notionToken">Notionトークンを削除</button>
+        <button type="button" id="btn-notion-test" class="btn btn-small">Notion接続テスト</button>
+      </div>
+      <p id="notion-test-status" class="status-line" role="status"></p>
+    </div>
+
+    <p id="settings-status" class="status-line" role="status"></p>
+    <div class="actions">
+      <button type="button" id="btn-save-settings" class="btn btn-primary">設定を保存する</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <p>個人用の非公開記録です。記録の本体はNotionに保存されます。</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
