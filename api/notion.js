@@ -58,6 +58,7 @@ function pageToRecord(page) {
   const p = (page && page.properties) || {};
   const num = (v) => (typeof v === "number" ? v : null);
   const data = {
+    category: ((p["カテゴリ"] || {}).select || {}).name || "映画",
     tmdbId: num((p["TMDB ID"] || {}).number),
     title: richTextToString((p["作品名"] || {}).title),
     originalTitle: richTextToString((p["原題"] || {}).rich_text),
