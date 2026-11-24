@@ -11,6 +11,7 @@ const DEFAULT_NOTION_DB_ID = "421900d8-e82c-8145-a27b-e9be1ee60b32";
 const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 
 const ALL_GENRES = ["アクション","アドベンチャー","アニメーション","コメディ","犯罪","ドキュメンタリー","ドラマ","ファミリー","ファンタジー","歴史","ホラー","音楽","ミステリー","ロマンス","SF","スリラー","戦争","西部劇"];
+const CATEGORIES = ["映画","読書","旅行","イベント","交流","その他"];
 const REWATCH_OPTIONS = ["ぜひ再鑑賞したい", "機会があれば", "再鑑賞はしない"];
 const POST_STATES = ["未承認", "投稿済み", "一部投稿済み", "投稿失敗"];
 
@@ -141,6 +142,7 @@ $$(".nav-btn").forEach((btn) => {
 function emptyForm() {
   return {
     mode: "auto",           // "auto" | "manual"
+    category: "映画",
     tmdbId: null,
     title: "", originalTitle: "", director: "", year: "",
     castText: "", genres: [], theme: "", letterboxdUrl: "", posterUrl: "",
@@ -190,6 +192,7 @@ function applyFormToDOM() {
   $("#f-connection").value = form.connection || "";
   $$('input[name="rewatch"]').forEach((r) => { r.checked = r.value === form.rewatch; });
   renderGenreChips();
+  renderCategoryChips();
   updatePosterPreview();
 }
 
@@ -209,6 +212,29 @@ function renderGenreChips() {
     });
     wrap.appendChild(b);
   });
+}
+
+function renderCategoryChips() {
+  [["#search-categories", true], ["#f-categories", false]].forEach(([sel, fromSearch]) => {
+    const wrap = $(sel);
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    CATEGORIES.forEach((c) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip" + (form.category === c ? " on" : "");
+      b.textContent = c;
+      b.addEventListener("click", () => pickCategory(c, fromSearch));
+      wrap.appendChild(b);
+    });
+  });
+}
+function pickCategory(c, fromSearch) {
+  // 検索画面で映画以外を選んだら、手入力フォームへ進む
+  if (fromSearch && c !== "映画") { startManualRecord(c); return; }
+  form.category = c;
+  renderCategoryChips();
+  saveDraft();
 }
 
 function updatePosterPreview() {
@@ -262,9 +288,10 @@ $("#btn-discard-draft").addEventListener("click", () => {
 });
 
 /* ===== 一覧・詳細 ===== */
-function leadActor(castText) {
-  const first = (castText || "").split("\n").map((s) => s.trim()).filter(Boolean)[0] || "";
-  return first.replace(/（.*$/, "").trim();
+function shortWatchDate(watchDate) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(watchDate || "");
+  if (!m) return watchDate || "—";
+  return `${Number(m[2])}/${Number(m[3])}`;
 }
 
 function renderList() {
@@ -277,15 +304,13 @@ function renderList() {
     b.type = "button";
     b.className = "movie-row";
     b.innerHTML =
-      `<span class="mr-title">${esc(d.title) || "（無題）"}</span>` +
-      `<span class="mr-date">${esc(d.watchDate || "—")}</span>` +
-      `<span class="mr-lead">${esc(leadActor(d.castText) || "—")}</span>` +
+      `<span class="mr-title">【${esc(d.category || "映画")}】${esc(d.title) || "（無題）"}</span>` +
+      `<span class="mr-date">${esc(shortWatchDate(d.watchDate))}</span>` +
       `<span class="mr-theme">${esc(d.myTheme || "—")}</span>`;
     b.addEventListener("click", () => openDetail(rec.id));
     wrap.appendChild(b);
   });
 }
-$("#btn-new-row").addEventListener("click", () => showView("search"));
 
 let currentRecordId = null;
 function getCurrentRecord() { return records.find((r) => r.id === currentRecordId) || null; }
@@ -296,7 +321,7 @@ function openDetail(id) {
   if (!rec) { showView("list"); return; }
   const d = rec.data;
   const rows = [
-    ["作品名", d.title], ["原題", d.originalTitle], ["監督", d.director], ["公開年", d.year],
+    ["カテゴリ", d.category || "映画"], ["作品名", d.title], ["原題", d.originalTitle], ["監督", d.director], ["公開年", d.year],
     ["出演者", d.castText], ["ジャンル", (d.genres || []).join("・")], ["一般的なテーマ", d.theme],
     ["Letterboxd URL", d.letterboxdUrl], ["鑑賞日", d.watchDate], ["評価", d.rating],
     ["私が感じた一言テーマ", d.myTheme], ["印象に残った場面", d.scene],
@@ -336,6 +361,7 @@ function startEditRecord(rec) {
   }
   form = Object.assign(emptyForm(), {
     mode: d.tmdbId ? "auto" : "manual",
+    category: CATEGORIES.includes(d.category) ? d.category : "映画",
     tmdbId: d.tmdbId != null ? d.tmdbId : null,
     title: d.title || "", originalTitle: d.originalTitle || "",
     director: d.director || "", year: d.year || "",
@@ -443,17 +469,18 @@ $("#btn-use-selected").addEventListener("click", async () => {
   }
 });
 
-$("#btn-manual").addEventListener("click", () => {
+function startManualRecord(category) {
   // 感想の下書きが残っている場合は引き継ぎ、作品情報だけ空にする
   const kept = { deep: form.deep, myTheme: form.myTheme, scene: form.scene, connection: form.connection, watchDate: form.watchDate, rating: form.rating, rewatch: form.rewatch };
-  form = Object.assign(emptyForm(), kept, { mode: "manual" });
+  form = Object.assign(emptyForm(), kept, { mode: "manual", category: category || "映画" });
   editingRecordId = null;
   draftRestored = false;
   $("#draft-banner").hidden = true;
   applyFormToDOM();
   saveDraft();
   showView("form");
-});
+}
+$("#btn-manual").addEventListener("click", () => startManualRecord(form.category || "映画"));
 $("#btn-form-back").addEventListener("click", () => showView("search"));
 
 function letterboxdSlug(originalTitle) {
@@ -577,7 +604,7 @@ $("#btn-regen-theme").addEventListener("click", async () => {
 function formToRecordData() {
 collectFormFromDOM();
 return {
-tmdbId: form.tmdbId, title: form.title, originalTitle: form.originalTitle,
+category: form.category || "映画", tmdbId: form.tmdbId, title: form.title, originalTitle: form.originalTitle,
 director: form.director, year: form.year, castText: form.castText,
 genres: form.genres.slice(), theme: form.theme, letterboxdUrl: form.letterboxdUrl,
 posterUrl: form.posterUrl, watchDate: form.watchDate, rating: form.rating,
@@ -603,7 +630,7 @@ const d = formToRecordData();
 if (!d.title) { status.textContent = "作品名が空です。"; status.classList.add("error"); return;}
 status.textContent = ""; status.classList.remove("error");
 const rows = [
-["作品名", d.title], ["原題", d.originalTitle], ["監督", d.director], ["公開年", d.year],
+["カテゴリ", d.category || "映画"], ["作品名", d.title], ["原題", d.originalTitle], ["監督", d.director], ["公開年", d.year],
 ["出演者", d.castText], ["ジャンル", d.genres.join("・")], ["一般的なテーマ", d.theme],
 ["Letterboxd URL", d.letterboxdUrl], ["鑑賞日", d.watchDate], ["評価", d.rating],
 ["私が感じた一言テーマ", d.myTheme], ["印象に残った場面", d.scene],
@@ -627,6 +654,7 @@ return chunks.map((c) => ({ type: "text", text: { content: c}}));
 function buildNotionProperties(d, postState, overwrite) {
 const props = {};
 props["作品名"] = { title: [{ type: "text", text: { content: d.title || "（無題）"}}]};
+props["カテゴリ"] = { select: { name: CATEGORIES.includes(d.category) ? d.category : "映画" } };
 // 上書き保存（編集）のときは、空にした項目がNotion側でも空になるよう、空値も送る
 const rt = (key, v) => { if (v) props[key] = { rich_text: richText(v) }; else if (overwrite) props[key] = { rich_text: [] }; };
 rt("原題", d.originalTitle);
