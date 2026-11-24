@@ -32,10 +32,9 @@
   <!-- ===== 一覧 ===== -->
   <section id="view-list" class="view">
     <h2 class="view-title">登録済みの映画</h2>
-    <p id="list-empty" class="muted">まだ記録がありません。一番上の「＋ 新規」から最初の1本を記録してください。<br>（記録の本体はNotionに保存されます。ここにはこの端末のキャッシュが表示されます）</p>
+    <p id="list-empty" class="muted">まだ記録がありません。上の「＋ 映画を記録する」から最初の1本を記録してください。<br>（記録の本体はNotionに保存されます。ここにはこの端末のキャッシュが表示されます）</p>
     <div class="movie-rows">
-      <button type="button" id="btn-new-row" class="movie-row movie-row-new"><span class="mr-title">＋ 新規</span><span></span><span></span><span></span></button>
-      <div class="movie-row movie-row-head" aria-hidden="true"><span>題名</span><span>鑑賞日</span><span>主役</span><span>一言テーマ</span></div>
+      <div class="movie-row movie-row-head" aria-hidden="true"><span>題名</span><span>鑑賞日</span><span>一言テーマ</span></div>
       <div id="record-list"></div>
     </div>
   </section>
@@ -43,6 +42,9 @@
   <!-- ===== 検索 ===== -->
   <section id="view-search" class="view" hidden>
     <h2 class="view-title">映画を検索</h2>
+    <div class="field"><span>カテゴリ（映画以外は手入力の記録になります）</span>
+      <div id="search-categories" class="chip-wrap"></div>
+    </div>
     <p class="muted">邦題・原題・一部の入力でも検索できます。</p>
     <form id="search-form" class="search-form">
       <input type="search" id="search-input" placeholder="作品名を入力（例：ゴジラ-0.0）" autocomplete="off" enterkeyhint="search">
@@ -65,6 +67,9 @@
       <button type="button" id="btn-discard-draft" class="btn btn-small btn-ghost">下書きを破棄</button>
     </div>
     <h2 class="view-title">映画の記録</h2>
+    <div class="field"><span>カテゴリ</span>
+      <div id="f-categories" class="chip-wrap"></div>
+    </div>
 
     <div class="form-block">
       <h3 class="block-title">作品情報（自動入力・編集可）</h3>
