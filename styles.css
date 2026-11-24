@@ -178,7 +178,7 @@ body:has(#view-settings:not([hidden])) .nav-btn[data-nav="settings"] {
 /* 一覧は1行1作品の表形式：題名／鑑賞日（月日のみ）／一言テーマ */
 .movie-rows { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .movie-row {
-  display: grid; grid-template-columns: minmax(0, 2fr) 3.2em minmax(0, 1.5fr);
+  display: grid; grid-template-columns: minmax(0, 1.1fr) 3.2em minmax(0, 2.2fr);
   gap: 10px; align-items: center; width: 100%; padding: 10px 14px;
   background: transparent; border: none; border-bottom: 1px solid var(--border);
   color: var(--text); text-align: left; font: inherit;
@@ -188,7 +188,7 @@ button.movie-row { cursor: pointer; }
 button.movie-row:hover { background: var(--surface-muted); }
 .movie-row .mr-title { font-weight: 700; }
 .movie-row .mr-date { color: var(--muted); font-size: 0.85rem; }
-.movie-row .mr-theme { color: var(--gold-dark); }
+.movie-row .mr-theme { color: var(--gold-dark); font-weight: 700; font-size: 1.02rem; }
 .movie-row-head { color: var(--muted); font-size: 0.8rem; font-weight: 700; background: var(--surface-muted); }
 #record-list .movie-row:last-child { border-bottom: none; }
 .confirm-body, .detail-body {
