@@ -161,15 +161,24 @@ body {
 .candidate .cand-badge { margin-left: auto; color: var(--gold-dark); font-weight: 700; font-size: 0.85rem; white-space: nowrap; }
 
 /* ===== 一覧・詳細 ===== */
-.record-list { display: grid; gap: 12px; }
-.record-card {
-  display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px; cursor: pointer; box-shadow: var(--shadow); text-align: left; width: 100%; color: var(--text);
+/* 一覧は1行1作品の表形式：題名／鑑賞日／主役／一言テーマ */
+.movie-rows { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.movie-row {
+  display: grid; grid-template-columns: minmax(0, 2fr) 6.6em minmax(0, 1.1fr) minmax(0, 1.5fr);
+  gap: 10px; align-items: center; width: 100%; padding: 10px 14px;
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  color: var(--text); text-align: left; font: inherit;
 }
-.record-card img { width: 60px; height: 90px; object-fit: cover; border-radius: 6px; background: var(--surface-muted); }
-.record-card .rec-title { font-weight: 700; }
-.record-card .rec-meta { color: var(--muted); font-size: 0.85rem; }
-.record-card .rec-state { font-size: 0.8rem; color: var(--gold-dark); font-weight: 700; }
+.movie-row > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button.movie-row { cursor: pointer; }
+button.movie-row:hover { background: var(--surface-muted); }
+.movie-row .mr-title { font-weight: 700; }
+.movie-row .mr-date { color: var(--muted); font-size: 0.85rem; }
+.movie-row .mr-theme { color: var(--gold-dark); }
+.movie-row-head { color: var(--muted); font-size: 0.8rem; font-weight: 700; background: var(--surface-muted); }
+.movie-row-new { color: var(--gold-dark); font-weight: 700; background: var(--accent-bg); }
+.movie-row-new:hover { background: var(--accent-bg); filter: brightness(0.98); }
+#record-list .movie-row:last-child { border-bottom: none; }
 .confirm-body, .detail-body {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 16px; box-shadow: var(--shadow);
@@ -186,7 +195,6 @@ body {
 @media (min-width: 768px) {
   .app-header-inner, .app-main { max-width: 960px; }
   .app-main { padding: 24px 20px 48px; }
-  .record-list { grid-template-columns: repeat(2, 1fr); gap: 14px; }
 }
 
 /* ===== レスポンシブ：PC（1024px以上） ===== */
@@ -198,11 +206,8 @@ body {
   .app-main { padding: 28px 24px 56px; }
   .view-title { font-size: 1.5rem; margin-bottom: 16px; }
 
-  /* 一覧・候補は横に並べる */
-  .record-list { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  /* 候補は横に並べる（一覧は1行表示のまま） */
   .candidate-list { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  .record-card { padding: 14px; }
-  .record-card img { width: 66px; height: 99px; }
   .poster-img { width: 110px; }
 
   /* 入力フォームは「作品情報」「感想」を左右2段に */
@@ -221,5 +226,4 @@ body {
 /* ===== レスポンシブ：大きなPC画面（1440px以上） ===== */
 @media (min-width: 1440px) {
   .app-header-inner, .app-main { max-width: 1280px; }
-  .record-list { grid-template-columns: repeat(3, 1fr); }
 }
