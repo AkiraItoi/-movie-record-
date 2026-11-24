@@ -59,7 +59,21 @@ body {
   font-size: 0.9rem;
   cursor: pointer;
 }
-.nav-btn-primary { background: var(--gold); border-color: var(--gold); color: #fff; font-weight: 700; }
+/* ナビボタンの色：今開いている画面に対応するボタンだけを金色にする。
+   判定は画面（view）の hidden 状態で行うため、app.js の変更は不要。
+   一覧・詳細 →「一覧」、検索・入力・確認・投稿 →「＋ 映画を記録する」、設定 →「設定」 */
+body:has(#view-list:not([hidden])) .nav-btn[data-nav="list"],
+body:has(#view-detail:not([hidden])) .nav-btn[data-nav="list"],
+body:has(#view-search:not([hidden])) .nav-btn[data-nav="search"],
+body:has(#view-form:not([hidden])) .nav-btn[data-nav="search"],
+body:has(#view-confirm:not([hidden])) .nav-btn[data-nav="search"],
+body:has(#view-post:not([hidden])) .nav-btn[data-nav="search"],
+body:has(#view-settings:not([hidden])) .nav-btn[data-nav="settings"] {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+  font-weight: 700;
+}
 
 /* ===== レイアウト ===== */
 .app-main { max-width: 880px; margin: 0 auto; padding: 20px 16px 40px; }
