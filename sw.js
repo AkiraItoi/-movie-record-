@@ -2,12 +2,12 @@
    アプリの画面（シェル）をキャッシュして、オフラインでも開けるようにする。
    API通信（TMDB / Gemini / Notion中継）はキャッシュしない。
    ※ 下書きは localStorage に保存されるため、このキャッシュの版数とは無関係に保持される。 */
-const CACHE_NAME = "movie-pwa-shell-v2";
+const CACHE_NAME = "movie-pwa-shell-v3";
 const SHELL_FILES = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
+  "./styles.css?v=3",
+  "./app.js?v=3",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -18,7 +18,9 @@ const SHELL_FILES = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(SHELL_FILES.map((u) => new Request(u, { cache: "no-cache" }))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -37,8 +39,10 @@ self.addEventListener("fetch", (event) => {
   // 外部APIはネットワークのみ（キャッシュしない）
   if (url.origin !== self.location.origin) return;
   // 同一オリジンはネットワーク優先、失敗したらキャッシュ（更新を取りこぼさないため）
+  // HTTPキャッシュ（GitHub Pagesは max-age=600）を経由すると古い版が返ることがあるため、
+  // 必ずサーバーへ再検証に行く（no-cache）。
   event.respondWith(
-    fetch(req).then((res) => {
+    fetch(req, { cache: "no-cache" }).then((res) => {
       const copy = res.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
       return res;
