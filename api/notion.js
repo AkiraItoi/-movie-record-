@@ -9,6 +9,8 @@
  *       … 既存ページを更新する（投稿状態の反映など）
  *   { action: "test",   token, payload: { database_id } }
  *       … 接続テスト（データベース情報を取得する）
+ *   { action: "list",   token, payload: { database_id } }
+ *       … 記録の一覧を取得する（Notion → アプリの読み込み・端末間同期用）
  *
  * - ユーザーの Notion 連携トークンは、リクエストごとに受け取って
  *   Notion へ転送するだけ。Vercel 側には一切保存しない。
@@ -46,6 +48,40 @@ async function readBody(req) {
   const text = Buffer.concat(chunks).toString("utf8");
   if (!text) return {};
   try { return JSON.parse(text); } catch (e) { return {}; }
+}
+
+/* Notion のページ（行）を、アプリの記録データ形式に変換する */
+function richTextToString(v) {
+  return (Array.isArray(v) ? v : []).map((t) => (t && t.plain_text) || "").join("");
+}
+function pageToRecord(page) {
+  const p = (page && page.properties) || {};
+  const num = (v) => (typeof v === "number" ? v : null);
+  const data = {
+    tmdbId: num((p["TMDB ID"] || {}).number),
+    title: richTextToString((p["作品名"] || {}).title),
+    originalTitle: richTextToString((p["原題"] || {}).rich_text),
+    director: richTextToString((p["監督"] || {}).rich_text),
+    year: num((p["公開年"] || {}).number) != null ? String(num((p["公開年"] || {}).number)) : "",
+    castText: richTextToString((p["出演者"] || {}).rich_text),
+    genres: (((p["ジャンル"] || {}).multi_select) || []).map((g) => g.name).filter(Boolean),
+    theme: richTextToString((p["一般的なテーマ"] || {}).rich_text),
+    letterboxdUrl: (p["Letterboxd URL"] || {}).url || "",
+    posterUrl: (p["ポスター画像URL"] || {}).url || "",
+    watchDate: ((p["鑑賞日"] || {}).date || {}).start || "",
+    rating: num((p["評価"] || {}).number) != null ? String(num((p["評価"] || {}).number)) : "",
+    myTheme: richTextToString((p["私が感じた一言テーマ"] || {}).rich_text),
+    scene: richTextToString((p["印象に残った場面"] || {}).rich_text),
+    deep: richTextToString((p["深掘り感想・キーワード"] || {}).rich_text),
+    connection: richTextToString((p["仕事・人生との接点"] || {}).rich_text),
+    rewatch: ((p["再鑑賞したいか"] || {}).select || {}).name || ""
+  };
+  return {
+    notionPageId: page.id,
+    savedAt: page.created_time || "",
+    postState: ((p["投稿状態"] || {}).select || {}).name || "未承認",
+    data
+  };
 }
 
 async function notionRequest(token, method, path, body) {
@@ -148,6 +184,32 @@ module.exports = async function handler(req, res) {
       }
       const result = await notionRequest(token, "GET", "/databases/" + payload.database_id, null);
       sendJson(res, result.status, result.data);
+      return;
+    }
+
+    // 記録一覧の取得（新しい順に最大100件）
+    if (action === "list") {
+      if (!payload.database_id) {
+        sendJson(res, 400, { message: "database_id がありません" });
+        return;
+      }
+      const resolved = await resolveDataSourceId(payload.database_id);
+      if (resolved.error) {
+        sendJson(res, resolved.error.status, resolved.error.data);
+        return;
+      }
+      const result = await notionRequest(token, "POST", "/data_sources/" + resolved.dataSourceId + "/query", {
+        page_size: 100,
+        sorts: [{ timestamp: "created_time", direction: "descending" }]
+      });
+      if (result.status !== 200) {
+        sendJson(res, result.status, result.data);
+        return;
+      }
+      const rows = ((result.data && result.data.results) || [])
+        .filter((pg) => pg && pg.object === "page" && !pg.in_trash)
+        .map(pageToRecord);
+      sendJson(res, 200, { results: rows });
       return;
     }
 
