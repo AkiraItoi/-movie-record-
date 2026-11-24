@@ -178,7 +178,7 @@ body:has(#view-settings:not([hidden])) .nav-btn[data-nav="settings"] {
 /* 一覧は1行1作品の表形式：題名／鑑賞日（月日のみ）／一言テーマ */
 .movie-rows { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .movie-row {
-  display: grid; grid-template-columns: minmax(0, 1.1fr) 3.2em minmax(0, 2.2fr);
+  display: grid; grid-template-columns: minmax(0, 1.5fr) 3.2em minmax(0, 2.2fr);
   gap: 10px; align-items: center; width: 100%; padding: 10px 14px;
   background: transparent; border: none; border-bottom: 1px solid var(--border);
   color: var(--text); text-align: left; font: inherit;
