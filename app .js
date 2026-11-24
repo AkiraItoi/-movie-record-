@@ -50,6 +50,33 @@ function persistSettings() { saveJSON(SETTINGS_KEY, settings); }
 let records = loadJSON(RECORDS_KEY, []);
 function persistRecords() { saveJSON(RECORDS_KEY, records); }
 
+/* 同じ映画の記録が複数できていたら、内容の多い方に寄せて1件にまとめる */
+function recordRichness(r) {
+  const d = (r && r.data) || {};
+  return ["watchDate", "rating", "myTheme", "scene", "deep", "short", "connection", "theme"].filter((k) => (d[k] || "") !== "").length;
+}
+function dedupeRecords() {
+  const byKey = new Map();
+  let changed = false;
+  for (const r of records) {
+    const d = r.data || {};
+    const key = d.tmdbId ? "tmdb:" + d.tmdbId : "title:" + (d.title || "") + "|" + (d.year || "");
+    if (!key || key === "title:|") continue;
+    const prev = byKey.get(key);
+    if (!prev) { byKey.set(key, r); continue; }
+    changed = true;
+    const keep = recordRichness(r) > recordRichness(prev) ? r : prev;
+    const drop = keep === r ? prev : r;
+    if (!keep.notionPageId && drop.notionPageId) keep.notionPageId = drop.notionPageId;
+    byKey.set(key, keep);
+  }
+  if (changed) {
+    records = Array.from(byKey.values());
+    persistRecords();
+  }
+}
+dedupeRecords();
+
 /* ===== 画面遷移 ===== */
 const VIEWS = ["list", "search", "form", "confirm", "post", "detail", "settings"];
 function showView(name) {
@@ -147,6 +174,19 @@ function updatePosterPreview() {
 /* ===== 下書き保存（最重要） ===== */
 function saveDraft() {
   collectFormFromDOM();
+  // データ消失防止：感想が入った下書きを、同じ作品の「感想が空の画面」で上書きしない。
+  // 空の画面が表示されても、感想だけは前回の下書きから引き継いで保持する。
+  const prev = loadJSON(DRAFT_KEY, null);
+  if (prev && prev.form) {
+    const imp = ["myTheme", "scene", "deep", "short", "connection"];
+    const prevHas = imp.some((k) => (prev.form[k] || "").trim() !== "");
+    const nowHas = imp.some((k) => (form[k] || "").trim() !== "");
+    const sameFilm = (prev.form.tmdbId && form.tmdbId && prev.form.tmdbId === form.tmdbId) ||
+      (prev.form.title && form.title && prev.form.title === form.title);
+    if (prevHas && !nowHas && sameFilm) {
+      imp.forEach((k) => { form[k] = prev.form[k]; });
+    }
+  }
   saveJSON(DRAFT_KEY, { form: form, savedAt: Date.now() });
 }
 function loadDraft() {
@@ -579,9 +619,18 @@ status.classList.remove("error");
 status.textContent = "Notionに保存中…";
 btn.disabled = true;
 try {
+// 同じ映画の記録が既にある場合は、新規作成せずその記録を更新する（二重登録防止）
+const existing = d.tmdbId ? records.find((r) => r.data && r.data.tmdbId === d.tmdbId) : null;
+let rec;
+if (existing && existing.notionPageId) {
+await relayRequest("update", { properties: buildNotionProperties(d, existing.postState || "未承認") }, existing.notionPageId);
+existing.data = d;
+existing.postText = buildPostText(d);
+rec = existing;
+} else {
 const payload = { database_id: settings.notionDbId || DEFAULT_NOTION_DB_ID, properties: buildNotionProperties(d, "未承認")};
 const page = await relayRequest("create", payload);
-const rec = {
+rec = {
 id: "rec-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
 notionPageId: page.id || "",
 savedAt: new Date().toISOString(),
@@ -590,7 +639,9 @@ postState: "未承認",
 postText: ""
 };
 rec.postText = buildPostText(d);
-records.push(rec);
+if (existing) records = records.map((r) => (r === existing ? rec : r));
+else records.push(rec);
+}
 persistRecords();
 clearDraft();
 form = emptyForm();
