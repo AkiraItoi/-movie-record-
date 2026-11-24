@@ -77,11 +77,59 @@ function dedupeRecords() {
 }
 dedupeRecords();
 
+/* Notion から記録を読み込んで端末内キャッシュに反映する（端末間同期）。
+   これにより、別の端末で開いても Notion に保存済みの記録が一覧に出る。 */
+let syncing = false;
+let lastSyncAt = 0;
+function maybeSyncFromNotion() {
+  if (Date.now() - lastSyncAt < 30000) return;
+  syncFromNotion();
+}
+async function syncFromNotion() {
+  if (syncing) return;
+  if (!settings.relayUrl || !settings.notionToken) return;
+  syncing = true;
+  try {
+    const res = await relayRequest("list", { database_id: settings.notionDbId || DEFAULT_NOTION_DB_ID });
+    const serverRecs = (res && Array.isArray(res.results)) ? res.results : null;
+    if (serverRecs) {
+      lastSyncAt = Date.now();
+      const byPageId = new Map(records.filter((r) => r.notionPageId).map((r) => [r.notionPageId, r]));
+      const merged = [];
+      const seenIds = new Set();
+      // サーバーは新しい順で返す。端末内は古い順に保持するので逆順に取り込む
+      for (const sr of serverRecs.slice().reverse()) {
+        const local = byPageId.get(sr.notionPageId);
+        if (local) {
+          local.data = sr.data;
+          local.postState = sr.postState || local.postState || "未承認";
+          if (!local.postText) local.postText = buildPostText(sr.data);
+          merged.push(local);
+          seenIds.add(local.id);
+        } else {
+          merged.push({
+            id: "notion-" + sr.notionPageId, notionPageId: sr.notionPageId,
+            savedAt: sr.savedAt || "", data: sr.data,
+            postState: sr.postState || "未承認", postText: buildPostText(sr.data)
+          });
+        }
+      }
+      // Notion未保存（端末内だけ）の記録は残す
+      for (const r of records) { if (!seenIds.has(r.id) && !r.notionPageId) merged.push(r); }
+      records = merged;
+      dedupeRecords();
+      persistRecords();
+      if (!$("#view-list").hidden) renderList();
+    }
+  } catch (e) { /* 読み込めない場合は端末内キャッシュのまま続行する */ }
+  syncing = false;
+}
+
 /* ===== 画面遷移 ===== */
 const VIEWS = ["list", "search", "form", "confirm", "post", "detail", "settings"];
 function showView(name) {
   VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== name; });
-  if (name === "list") renderList();
+  if (name === "list") { renderList(); maybeSyncFromNotion(); }
   if (name === "settings") renderSettings();
   window.scrollTo(0, 0);
 }
@@ -803,5 +851,6 @@ showView("form");
 applyFormToDOM();
 showView("list");
 }
+syncFromNotion();
 }
 init();
