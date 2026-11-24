@@ -32,8 +32,12 @@
   <!-- ===== 一覧 ===== -->
   <section id="view-list" class="view">
     <h2 class="view-title">登録済みの映画</h2>
-    <p id="list-empty" class="muted">まだ記録がありません。「＋ 映画を記録する」から最初の1本を記録してください。<br>（記録の本体はNotionに保存されます。ここにはこの端末のキャッシュが表示されます）</p>
-    <div id="record-list" class="record-list"></div>
+    <p id="list-empty" class="muted">まだ記録がありません。一番上の「＋ 新規」から最初の1本を記録してください。<br>（記録の本体はNotionに保存されます。ここにはこの端末のキャッシュが表示されます）</p>
+    <div class="movie-rows">
+      <button type="button" id="btn-new-row" class="movie-row movie-row-new"><span class="mr-title">＋ 新規</span><span></span><span></span><span></span></button>
+      <div class="movie-row movie-row-head" aria-hidden="true"><span>題名</span><span>鑑賞日</span><span>主役</span><span>一言テーマ</span></div>
+      <div id="record-list"></div>
+    </div>
   </section>
 
   <!-- ===== 検索 ===== -->
@@ -110,15 +114,8 @@
       <label class="field"><span>印象に残った場面</span><textarea id="f-scene" rows="3"></textarea></label>
       <label class="field"><span>深掘り用感想・キーワード</span>
         <textarea id="f-deep" rows="6" placeholder="乱文・箇条書きでOKです。思いつくままに書いてください。"></textarea>
-        <small class="hint">思いのままに書いて大丈夫です。下の「短い感想」は、ここに書いた内容だけをもとにAIが要約します。</small>
+        <small class="hint">思いのままに書いて大丈夫です。</small>
       </label>
-      <label class="field"><span>短い感想</span>
-        <textarea id="f-short" rows="3"></textarea>
-      </label>
-      <div class="actions actions-left">
-        <button type="button" id="btn-summarize" class="btn btn-small">AIで要約する</button>
-        <span id="summarize-status" class="hint"></span>
-      </div>
       <label class="field"><span>仕事・人生との接点</span><textarea id="f-connection" rows="3"></textarea></label>
       <div class="field"><span>再鑑賞したいか</span>
         <div class="radio-row" id="f-rewatch">
@@ -206,7 +203,7 @@
     </div>
 
     <div class="form-block">
-      <h3 class="block-title">AI（Gemini）― テーマ生成・役名の日本語化・短い感想の要約</h3>
+      <h3 class="block-title">AI（Gemini）― テーマ生成・役名の日本語化</h3>
       <label class="field"><span>Gemini APIキー</span>
         <input type="password" id="s-gemini" autocomplete="off" placeholder="">
         <small class="hint" id="s-gemini-state"></small>
@@ -214,7 +211,7 @@
       <div class="actions actions-left">
         <button type="button" class="btn btn-small" data-delete-key="geminiKey">Geminiキーを削除</button>
       </div>
-      <p class="muted">キーが無い場合：テーマは空欄（手入力可）、役名はローマ字で出さず空欄にします。短い感想は手入力で使えます。</p>
+      <p class="muted">キーが無い場合：テーマは空欄（手入力可）、役名はローマ字で出さず空欄にします。</p>
     </div>
 
     <div class="form-block">
