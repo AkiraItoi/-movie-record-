@@ -151,6 +151,7 @@ function emptyForm() {
 }
 let form = emptyForm();
 let draftRestored = false;
+let editingRecordId = null; // 編集中の記録のID（保存時はその記録へ上書きする）
 
 function collectFormFromDOM() {
   form.title = $("#f-title").value.trim();
@@ -232,7 +233,7 @@ function saveDraft() {
       imp.forEach((k) => { form[k] = prev.form[k]; });
     }
   }
-  saveJSON(DRAFT_KEY, { form: form, savedAt: Date.now() });
+  saveJSON(DRAFT_KEY, { form: form, savedAt: Date.now(), editingId: editingRecordId });
 }
 function loadDraft() {
   const d = loadJSON(DRAFT_KEY, null);
@@ -241,6 +242,7 @@ function loadDraft() {
   const hasContent = ["title","director","myTheme","scene","deep","connection"].some((k) => (f[k] || "").trim() !== "");
   if (!hasContent) return false;
   form = Object.assign(emptyForm(), f);
+  editingRecordId = (d.editingId && records.some((r) => r.id === d.editingId)) ? d.editingId : null;
   return true;
 }
 function clearDraft() { localStorage.removeItem(DRAFT_KEY); }
@@ -252,6 +254,7 @@ $("#f-poster-url").addEventListener("input", () => { form.posterUrl = $("#f-post
 $("#btn-discard-draft").addEventListener("click", () => {
   clearDraft();
   form = emptyForm();
+  editingRecordId = null;
   draftRestored = false;
   $("#draft-banner").hidden = true;
   applyFormToDOM();
@@ -312,6 +315,48 @@ $("#btn-detail-post").addEventListener("click", () => {
   const rec = getCurrentRecord();
   if (rec) openPostView(rec);
 });
+$("#btn-detail-edit").addEventListener("click", () => {
+  const rec = getCurrentRecord();
+  if (rec) startEditRecord(rec);
+});
+
+/* 保存済みの記録を編集する：記録の内容をフォームに読み込み、保存時は同じNotionページへ上書きする */
+function startEditRecord(rec) {
+  const d = rec.data || {};
+  // 別の映画の下書き（感想入り）が残っていたら、上書きしてよいか確認する（感想の消失防止）
+  const prev = loadJSON(DRAFT_KEY, null);
+  if (prev && prev.form && editingRecordId !== rec.id) {
+    const imp = ["myTheme", "scene", "deep", "connection"];
+    const prevHas = imp.some((k) => (prev.form[k] || "").trim() !== "");
+    const sameFilm = (prev.form.tmdbId && d.tmdbId && prev.form.tmdbId === d.tmdbId) ||
+      (prev.form.title && d.title && prev.form.title === d.title);
+    if (prevHas && !sameFilm) {
+      if (!window.confirm("入力途中の下書きがあります。編集に切り替えると、その下書きは上書きされます。続けますか？")) return;
+    }
+  }
+  form = Object.assign(emptyForm(), {
+    mode: d.tmdbId ? "auto" : "manual",
+    tmdbId: d.tmdbId != null ? d.tmdbId : null,
+    title: d.title || "", originalTitle: d.originalTitle || "",
+    director: d.director || "", year: d.year || "",
+    castText: d.castText || "", genres: (d.genres || []).slice(),
+    theme: d.theme || "", letterboxdUrl: d.letterboxdUrl || "",
+    posterUrl: d.posterUrl || "", overview: "",
+    watchDate: d.watchDate || "", rating: d.rating || "",
+    myTheme: d.myTheme || "", scene: d.scene || "",
+    deep: d.deep || "", connection: d.connection || "",
+    rewatch: d.rewatch || ""
+  });
+  editingRecordId = rec.id;
+  draftRestored = false;
+  $("#draft-banner").hidden = true;
+  applyFormToDOM();
+  saveDraft();
+  showView("form");
+  const st = $("#form-status");
+  st.textContent = "『" + (d.title || "") + "』を編集中です。保存すると、この記録に上書きされます。";
+  st.classList.remove("error");
+}
 $("#btn-detail-delete").addEventListener("click", () => {
   records = records.filter((r) => r.id !== currentRecordId);
   persistRecords();
@@ -402,6 +447,7 @@ $("#btn-manual").addEventListener("click", () => {
   // 感想の下書きが残っている場合は引き継ぎ、作品情報だけ空にする
   const kept = { deep: form.deep, myTheme: form.myTheme, scene: form.scene, connection: form.connection, watchDate: form.watchDate, rating: form.rating, rewatch: form.rewatch };
   form = Object.assign(emptyForm(), kept, { mode: "manual" });
+  editingRecordId = null;
   draftRestored = false;
   $("#draft-banner").hidden = true;
   applyFormToDOM();
@@ -462,6 +508,7 @@ async function loadDetailsIntoForm(tmdbId) {
     try { form.theme = await generateTheme(form); } catch (e) { form.theme = ""; }
   }
 
+  editingRecordId = null;
   draftRestored = false;
   $("#draft-banner").hidden = true;
   applyFormToDOM();
@@ -577,27 +624,37 @@ for (let i = 0; i < s.length; i += 2000) chunks.push(s.slice(i, i + 2000));
 return chunks.map((c) => ({ type: "text", text: { content: c}}));
 }
 
-function buildNotionProperties(d, postState) {
+function buildNotionProperties(d, postState, overwrite) {
 const props = {};
 props["作品名"] = { title: [{ type: "text", text: { content: d.title || "（無題）"}}]};
-if (d.originalTitle) props["原題"] = { rich_text: richText(d.originalTitle)};
-if (d.director) props["監督"] = { rich_text: richText(d.director)};
-if (d.year &&!isNaN(Number(d.year))) props["公開年"] = { number: Number(d.year)};
-if (d.castText) props["出演者"] = { rich_text: richText(d.castText)};
-if (d.genres && d.genres.length) props["ジャンル"] = { multi_select: d.genres.map((g) => ({ name: g}))};
-if (d.theme) props["一般的なテーマ"] = { rich_text: richText(d.theme)};
-if (d.letterboxdUrl) props["Letterboxd URL"] = { url: d.letterboxdUrl};
-if (d.posterUrl) props["ポスター画像URL"] = { url: d.posterUrl};
-if (d.tmdbId) props["TMDB ID"] = { number: Number(d.tmdbId)};
-props["記載日"] = { date: { start: todayStr()}};
-if (d.watchDate) props["鑑賞日"] = { date: { start: d.watchDate}};
-if (d.rating) props["評価"] = { number: Number(d.rating)};
-if (d.myTheme) props["私が感じた一言テーマ"] = { rich_text: richText(d.myTheme)};
-if (d.scene) props["印象に残った場面"] = { rich_text: richText(d.scene)};
-if (d.deep) props["深掘り感想・キーワード"] = { rich_text: richText(d.deep)};
-if (d.connection) props["仕事・人生との接点"] = { rich_text: richText(d.connection)};
-if (d.rewatch && REWATCH_OPTIONS.includes(d.rewatch)) props["再鑑賞したいか"] = { select: { name: d.rewatch}};
-props["投稿状態"] = { select: { name: POST_STATES.includes(postState)? postState: "未承認"}};
+// 上書き保存（編集）のときは、空にした項目がNotion側でも空になるよう、空値も送る
+const rt = (key, v) => { if (v) props[key] = { rich_text: richText(v) }; else if (overwrite) props[key] = { rich_text: [] }; };
+rt("原題", d.originalTitle);
+rt("監督", d.director);
+rt("出演者", d.castText);
+rt("一般的なテーマ", d.theme);
+rt("私が感じた一言テーマ", d.myTheme);
+rt("印象に残った場面", d.scene);
+rt("深掘り感想・キーワード", d.deep);
+rt("仕事・人生との接点", d.connection);
+if (d.year && !isNaN(Number(d.year))) props["公開年"] = { number: Number(d.year) };
+else if (overwrite) props["公開年"] = { number: null };
+if (d.genres && d.genres.length) props["ジャンル"] = { multi_select: d.genres.map((g) => ({ name: g })) };
+else if (overwrite) props["ジャンル"] = { multi_select: [] };
+if (d.letterboxdUrl) props["Letterboxd URL"] = { url: d.letterboxdUrl };
+else if (overwrite) props["Letterboxd URL"] = { url: null };
+if (d.posterUrl) props["ポスター画像URL"] = { url: d.posterUrl };
+else if (overwrite) props["ポスター画像URL"] = { url: null };
+if (d.tmdbId) props["TMDB ID"] = { number: Number(d.tmdbId) };
+else if (overwrite) props["TMDB ID"] = { number: null };
+props["記載日"] = { date: { start: todayStr() } };
+if (d.watchDate) props["鑑賞日"] = { date: { start: d.watchDate } };
+else if (overwrite) props["鑑賞日"] = { date: null };
+if (d.rating) props["評価"] = { number: Number(d.rating) };
+else if (overwrite) props["評価"] = { number: null };
+if (d.rewatch && REWATCH_OPTIONS.includes(d.rewatch)) props["再鑑賞したいか"] = { select: { name: d.rewatch } };
+else if (overwrite) props["再鑑賞したいか"] = { select: null };
+props["投稿状態"] = { select: { name: POST_STATES.includes(postState) ? postState : "未承認" } };
 return props;
 }
 
@@ -634,11 +691,12 @@ status.classList.remove("error");
 status.textContent = "Notionに保存中…";
 btn.disabled = true;
 try {
-// 同じ映画の記録が既にある場合は、新規作成せずその記録を更新する（二重登録防止）
-const existing = d.tmdbId ? records.find((r) => r.data && r.data.tmdbId === d.tmdbId) : null;
+// 編集中の記録があればそれを、なければ同じ映画の既存記録を、更新対象にする（二重登録防止）
+const editTarget = editingRecordId ? records.find((r) => r.id === editingRecordId) : null;
+const existing = editTarget || (d.tmdbId ? records.find((r) => r.data && r.data.tmdbId === d.tmdbId) : null);
 let rec;
 if (existing && existing.notionPageId) {
-await relayRequest("update", { properties: buildNotionProperties(d, existing.postState || "未承認") }, existing.notionPageId);
+await relayRequest("update", { properties: buildNotionProperties(d, existing.postState || "未承認", true) }, existing.notionPageId);
 existing.data = d;
 existing.postText = buildPostText(d);
 rec = existing;
@@ -660,6 +718,7 @@ else records.push(rec);
 persistRecords();
 clearDraft();
 form = emptyForm();
+editingRecordId = null;
 draftRestored = false;
 $("#draft-banner").hidden = true;
 status.textContent = "保存しました。";
