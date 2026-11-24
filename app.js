@@ -304,7 +304,7 @@ function renderList() {
     b.type = "button";
     b.className = "movie-row";
     b.innerHTML =
-      `<span class="mr-title">【${esc(d.category || "映画")}】${esc(d.title) || "（無題）"}</span>` +
+      `<span class="mr-title">${esc(d.title) || "（無題）"}</span>` +
       `<span class="mr-date">${esc(shortWatchDate(d.watchDate))}</span>` +
       `<span class="mr-theme">${esc(d.myTheme || "—")}</span>`;
     b.addEventListener("click", () => openDetail(rec.id));
