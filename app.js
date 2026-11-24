@@ -53,7 +53,7 @@ function persistRecords() { saveJSON(RECORDS_KEY, records); }
 /* 同じ映画の記録が複数できていたら、内容の多い方に寄せて1件にまとめる */
 function recordRichness(r) {
   const d = (r && r.data) || {};
-  return ["watchDate", "rating", "myTheme", "scene", "deep", "short", "connection", "theme"].filter((k) => (d[k] || "") !== "").length;
+  return ["watchDate", "rating", "myTheme", "scene", "deep", "connection", "theme"].filter((k) => (d[k] || "") !== "").length;
 }
 function dedupeRecords() {
   const byKey = new Map();
@@ -98,7 +98,7 @@ function emptyForm() {
     castText: "", genres: [], theme: "", letterboxdUrl: "", posterUrl: "",
     overview: "",
     watchDate: "", rating: "", myTheme: "", scene: "",
-    deep: "", short: "", connection: "", rewatch: ""
+    deep: "", connection: "", rewatch: ""
   };
 }
 let form = emptyForm();
@@ -118,7 +118,6 @@ function collectFormFromDOM() {
   form.myTheme = $("#f-my-theme").value;
   form.scene = $("#f-scene").value;
   form.deep = $("#f-deep").value;
-  form.short = $("#f-short").value;
   form.connection = $("#f-connection").value;
   const rw = document.querySelector('input[name="rewatch"]:checked');
   form.rewatch = rw ? rw.value : "";
@@ -139,12 +138,10 @@ function applyFormToDOM() {
   $("#f-my-theme").value = form.myTheme || "";
   $("#f-scene").value = form.scene || "";
   $("#f-deep").value = form.deep || "";
-  $("#f-short").value = form.short || "";
   $("#f-connection").value = form.connection || "";
   $$('input[name="rewatch"]').forEach((r) => { r.checked = r.value === form.rewatch; });
   renderGenreChips();
   updatePosterPreview();
-  updateSummarizeButton();
 }
 
 function renderGenreChips() {
@@ -178,7 +175,7 @@ function saveDraft() {
   // 空の画面が表示されても、感想だけは前回の下書きから引き継いで保持する。
   const prev = loadJSON(DRAFT_KEY, null);
   if (prev && prev.form) {
-    const imp = ["myTheme", "scene", "deep", "short", "connection"];
+    const imp = ["myTheme", "scene", "deep", "connection"];
     const prevHas = imp.some((k) => (prev.form[k] || "").trim() !== "");
     const nowHas = imp.some((k) => (form[k] || "").trim() !== "");
     const sameFilm = (prev.form.tmdbId && form.tmdbId && prev.form.tmdbId === form.tmdbId) ||
@@ -193,7 +190,7 @@ function loadDraft() {
   const d = loadJSON(DRAFT_KEY, null);
   if (!d || !d.form) return false;
   const f = d.form;
-  const hasContent = ["title","director","myTheme","scene","deep","short","connection"].some((k) => (f[k] || "").trim() !== "");
+  const hasContent = ["title","director","myTheme","scene","deep","connection"].some((k) => (f[k] || "").trim() !== "");
   if (!hasContent) return false;
   form = Object.assign(emptyForm(), f);
   return true;
@@ -214,6 +211,11 @@ $("#btn-discard-draft").addEventListener("click", () => {
 });
 
 /* ===== 一覧・詳細 ===== */
+function leadActor(castText) {
+  const first = (castText || "").split("\n").map((s) => s.trim()).filter(Boolean)[0] || "";
+  return first.replace(/（.*$/, "").trim();
+}
+
 function renderList() {
   const wrap = $("#record-list");
   wrap.innerHTML = "";
@@ -222,17 +224,17 @@ function renderList() {
     const d = rec.data;
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "record-card";
+    b.className = "movie-row";
     b.innerHTML =
-      (d.posterUrl ? `<img src="${esc(d.posterUrl)}" alt="">` : `<img alt="">`) +
-      `<span><span class="rec-title">${esc(d.title) || "（無題）"}</span>` +
-      `<span class="rec-meta">　${esc(d.year || "")}年／${esc(d.director || "")}</span><br>` +
-      `<span class="rec-meta">鑑賞日：${esc(d.watchDate || "未入力")}　評価：${esc(d.rating || "未入力")}</span><br>` +
-      `<span class="rec-state">投稿状態：${esc(rec.postState || "未承認")}</span></span>`;
+      `<span class="mr-title">${esc(d.title) || "（無題）"}</span>` +
+      `<span class="mr-date">${esc(d.watchDate || "—")}</span>` +
+      `<span class="mr-lead">${esc(leadActor(d.castText) || "—")}</span>` +
+      `<span class="mr-theme">${esc(d.myTheme || "—")}</span>`;
     b.addEventListener("click", () => openDetail(rec.id));
     wrap.appendChild(b);
   });
 }
+$("#btn-new-row").addEventListener("click", () => showView("search"));
 
 let currentRecordId = null;
 function getCurrentRecord() { return records.find((r) => r.id === currentRecordId) || null; }
@@ -247,7 +249,7 @@ function openDetail(id) {
     ["出演者", d.castText], ["ジャンル", (d.genres || []).join("・")], ["一般的なテーマ", d.theme],
     ["Letterboxd URL", d.letterboxdUrl], ["鑑賞日", d.watchDate], ["評価", d.rating],
     ["私が感じた一言テーマ", d.myTheme], ["印象に残った場面", d.scene],
-    ["短い感想", d.short], ["深掘り感想・キーワード", d.deep],
+    ["深掘り感想・キーワード", d.deep],
     ["仕事・人生との接点", d.connection], ["再鑑賞したいか", d.rewatch],
     ["投稿状態", rec.postState || "未承認"],
     ["Notion", rec.notionPageId ? "保存済み" : "未保存"]
@@ -350,7 +352,7 @@ $("#btn-use-selected").addEventListener("click", async () => {
 
 $("#btn-manual").addEventListener("click", () => {
   // 感想の下書きが残っている場合は引き継ぎ、作品情報だけ空にする
-  const kept = { deep: form.deep, short: form.short, myTheme: form.myTheme, scene: form.scene, connection: form.connection, watchDate: form.watchDate, rating: form.rating, rewatch: form.rewatch };
+  const kept = { deep: form.deep, myTheme: form.myTheme, scene: form.scene, connection: form.connection, watchDate: form.watchDate, rating: form.rating, rewatch: form.rewatch };
   form = Object.assign(emptyForm(), kept, { mode: "manual" });
   draftRestored = false;
   $("#draft-banner").hidden = true;
@@ -372,7 +374,7 @@ function letterboxdSlug(originalTitle) {
 
 async function loadDetailsIntoForm(tmdbId) {
   const d = await tmdbFetch(`/movie/${tmdbId}?language=ja-JP&append_to_response=credits`);
-  const kept = { deep: form.deep, short: form.short, myTheme: form.myTheme, scene: form.scene, connection: form.connection, watchDate: form.watchDate, rating: form.rating, rewatch: form.rewatch };
+  const kept = { deep: form.deep, myTheme: form.myTheme, scene: form.scene, connection: form.connection, watchDate: form.watchDate, rating: form.rating, rewatch: form.rewatch };
   const director = ((d.credits && d.credits.crew) || []).filter((c) => c.job === "Director").map((c) => c.name).join("、");
   const castRaw = ((d.credits && d.credits.cast) || []).slice(0, 6).map((c) => ({ name: c.name, character: c.character || "" }));
   const genres = (d.genres || []).map((g) => g.name).filter((g) => ALL_GENRES.includes(g));
@@ -461,40 +463,6 @@ async function generateTheme(f) {
   return callGemini(prompt);
 }
 
-async function summarizeDeep(deepText) {
-  const prompt =
-    "以下は、ある映画を観た本人が書いた感想メモです。この内容だけをもとに、約120字の短い感想文に要約してください。書かれていない内容は創作しないでください。本人の言い回しや大事にしている点はなるべく残してください。要約文だけを返してください。\n\n" +
-    deepText;
-  return callGemini(prompt);
-}
-
-function updateSummarizeButton() {
-  const btn = $("#btn-summarize");
-  const hasDeep = ($("#f-deep").value || "").trim().length > 0;
-  btn.disabled = !hasDeep;
-  btn.textContent = ($("#f-short").value || "").trim() ? "AIで要約し直す" : "AIで要約する";
-}
-$("#f-deep").addEventListener("input", updateSummarizeButton);
-$("#f-short").addEventListener("input", updateSummarizeButton);
-
-$("#btn-summarize").addEventListener("click", async () => {
-  const status = $("#summarize-status");
-  const deep = $("#f-deep").value.trim();
-  if (!deep) { status.textContent = "先に深掘り用感想・キーワードを書いてください。"; return; }
-  if (!settings.geminiKey) { status.textContent = "AI要約にはGemini APIキーが必要です（設定画面）。短い感想は手入力でも使えます。"; return; }
-  status.textContent = "要約中…";
-  try {
-    const summary = await summarizeDeep(deep);
-    $("#f-short").value = summary;
-    form.short = summary;
-    saveDraft();
-    updateSummarizeButton();
-    status.textContent = "要約しました。手直しもできます。";
-  } catch (e) {
-    status.textContent = "要約に失敗しました：" + e.message;
-  }
-});
-
 $("#btn-regen-theme").addEventListener("click", async () => {
   const status = $("#form-status");
   if (!settings.geminiKey) { status.textContent = "テーマのAI生成にはGemini APIキーが必要です（設定画面）。手入力でも使えます。"; return; }
@@ -518,7 +486,7 @@ tmdbId: form.tmdbId, title: form.title, originalTitle: form.originalTitle,
 director: form.director, year: form.year, castText: form.castText,
 genres: form.genres.slice(), theme: form.theme, letterboxdUrl: form.letterboxdUrl,
 posterUrl: form.posterUrl, watchDate: form.watchDate, rating: form.rating,
-myTheme: form.myTheme, scene: form.scene, deep: form.deep, short: form.short,
+myTheme: form.myTheme, scene: form.scene, deep: form.deep,
 connection: form.connection, rewatch: form.rewatch
 };
 }
@@ -544,7 +512,7 @@ const rows = [
 ["出演者", d.castText], ["ジャンル", d.genres.join("・")], ["一般的なテーマ", d.theme],
 ["Letterboxd URL", d.letterboxdUrl], ["鑑賞日", d.watchDate], ["評価", d.rating],
 ["私が感じた一言テーマ", d.myTheme], ["印象に残った場面", d.scene],
-["短い感想", d.short], ["深掘り感想・キーワード", d.deep],
+["深掘り感想・キーワード", d.deep],
 ["仕事・人生との接点", d.connection], ["再鑑賞したいか", d.rewatch]
 ];
 $("#confirm-body").innerHTML = "<dl>" + rows.map((r) => `<dt>${esc(r[0])}</dt><dd>${esc(r[1] || "（未入力）")}</dd>`).join("") + "</dl>";
@@ -578,7 +546,6 @@ if (d.watchDate) props["鑑賞日"] = { date: { start: d.watchDate}};
 if (d.rating) props["評価"] = { number: Number(d.rating)};
 if (d.myTheme) props["私が感じた一言テーマ"] = { rich_text: richText(d.myTheme)};
 if (d.scene) props["印象に残った場面"] = { rich_text: richText(d.scene)};
-if (d.short) props["短い感想"] = { rich_text: richText(d.short)};
 if (d.deep) props["深掘り感想・キーワード"] = { rich_text: richText(d.deep)};
 if (d.connection) props["仕事・人生との接点"] = { rich_text: richText(d.connection)};
 if (d.rewatch && REWATCH_OPTIONS.includes(d.rewatch)) props["再鑑賞したいか"] = { select: { name: d.rewatch}};
@@ -665,7 +632,6 @@ if (d.director) lines.push(`監督：${d.director}`);
 if (d.myTheme) lines.push("", d.myTheme);
 if (d.scene) lines.push("", "", d.scene);
 if (d.connection) lines.push("", "", d.connection);
-if (d.short) lines.push("", d.short);
 const tags = (d.genres || []).map((g) => "#" + g.replace(/\s+/g, ""));
 tags.push("#映画鑑賞記録");
 lines.push("", tags.join(" "));
